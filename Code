@@ -1,0 +1,913 @@
+import tkinter as tk
+from tkinter import ttk
+from typing import Dict, List
+import random
+from tkinter import messagebox
+
+
+class Question:
+    def __init__(self, question: str, options: List[str], correct: int, explanation: str):
+        self.question = question
+        self.options = options
+        self.correct = correct
+        self.explanation = explanation
+
+
+class MoneyMentorGUI:
+    def __init__(self):
+        # Main root window
+        self.root = tk.Tk()
+        self.root.title("MoneyMentor")
+        self.root.geometry("1000x800")
+        self.root.configure(bg='#f0f2f5')
+
+        # Game state
+        self.score = 0
+        self.level = 1
+        self.wallet = 1000
+        self.current_difficulty = 'beginner'
+        self.questions = self._initialize_questions()
+        self.current_question = None
+
+        # Track used questions
+        self.used_questions = {
+            'beginner': set(),
+            'intermediate': set(),
+            'advanced': set(),
+            'expert': set()
+        }
+
+        # Power-ups
+        self.powerups = {
+            'hint': {'cost': 300, 'available': True},
+            'double_points': {'cost': 500, 'available': True},
+            'skip_question': {'cost': 250, 'available': True}
+        }
+        self.active_powerups = {
+            'double_points': False
+        }
+
+        # For disabling answer buttons
+        self.answer_buttons = []
+
+        # References for frames
+        self.loading_screen_frame = None
+        self.start_screen_frame = None
+        self.notebook = None
+
+        # Initialize the loading screen first
+        self._setup_loading_screen()
+
+    def _initialize_questions(self) -> Dict:
+        return {
+            'beginner': [
+                Question(
+                    "What is the primary purpose of a budget?",
+                    [
+                        "To track and plan spending",
+                        "To make you feel guilty about spending",
+                        "To impress your friends",
+                        "To make your wallet heavier"
+                    ],
+                    0,
+                    "A budget helps you track income and expenses to make informed financial decisions!"
+                ),
+                Question(
+                    "Which of these is considered a need rather than a want?",
+                    [
+                        "Designer clothes",
+                        "Basic groceries",
+                        "Gaming console",
+                        "Luxury car"
+                    ],
+                    1,
+                    "Basic necessities like food are needs, while luxury items are wants."
+                ),
+                Question(
+                    "What is interest?",
+                    [
+                        "Free money from the bank",
+                        "A fee for borrowing money",
+                        "A type of credit card",
+                        "A bank account"
+                    ],
+                    1,
+                    "Interest is the cost of borrowing money or the return on lending money."
+                )
+            ],
+            'intermediate': [
+                Question(
+                    "What is the Rule of 72 used for?",
+                    [
+                        "Calculating sales tax",
+                        "Estimating how long it takes money to double",
+                        "Determining credit score",
+                        "Computing mortgage payments"
+                    ],
+                    1,
+                    "The Rule of 72 helps estimate how long it takes for an investment to double at a given interest rate."
+                ),
+                Question(
+                    "Which investment typically has the highest risk-return ratio?",
+                    [
+                        "Government bonds",
+                        "Corporate bonds",
+                        "Blue-chip stocks",
+                        "Small-cap stocks"
+                    ],
+                    3,
+                    "Small-cap stocks typically offer higher potential returns but come with increased risk."
+                ),
+                Question(
+                    "What is diversification in investing?",
+                    [
+                        "Putting all money in one stock",
+                        "Spreading investments across different assets",
+                        "Only investing in bonds",
+                        "Keeping all money in cash"
+                    ],
+                    1,
+                    "Diversification reduces risk by spreading investments across different assets and sectors."
+                )
+            ],
+            'advanced': [
+                Question(
+                    "Calculate the future value of $1000 invested at 8% compound interest for 3 years:",
+                    [
+                        "$1,240",
+                        "$1,259.71",
+                        "$1,300",
+                        "$1,469.32"
+                    ],
+                    1,
+                    "Using the compound interest formula: FV = PV(1+r)^t = 1000(1.08)^3 = $1,259.71"
+                ),
+                Question(
+                    "What typically happens to bond prices when interest rates rise?",
+                    [
+                        "Bond prices rise",
+                        "Bond prices fall",
+                        "Bond prices stay the same",
+                        "Bond prices become more volatile"
+                    ],
+                    1,
+                    "Bond prices typically fall when interest rates rise due to the inverse relationship between yields and prices."
+                ),
+                Question(
+                    "What is the primary difference between a Roth IRA and a Traditional IRA?",
+                    [
+                        "Roth IRA contributions are tax-deductible, Traditional IRA are not.",
+                        "Traditional IRA contributions are tax-deductible, Roth IRA are not.",
+                        "Both are taxed the same way.",
+                        "Neither has any tax benefits."
+                    ],
+                    1,
+                    "Traditional IRA contributions are tax-deductible, whereas Roth IRA contributions are made with after-tax dollars."
+                ),
+                Question(
+                    "What is a mutual fund?",
+                    [
+                        "A single stock that you can buy",
+                        "A portfolio of stocks, bonds, or other securities managed by a professional",
+                        "A type of bank account",
+                        "A loan from a financial institution"
+                    ],
+                    1,
+                    "A mutual fund pools money from many investors to purchase a diversified portfolio of stocks, bonds, or other securities."
+                )
+            ],
+            'expert': [
+                Question(
+                    "Calculate the duration of a 5-year bond with a 4% coupon rate and 6% YTM:",
+                    [
+                        "4.21 years",
+                        "4.55 years",
+                        "4.68 years",
+                        "5.00 years"
+                    ],
+                    2,
+                    "Duration measures price sensitivity to yield changes, considering time value of money and cash flows."
+                ),
+                Question(
+                    "What is the Treynor ratio in portfolio management?",
+                    [
+                        "Return per unit of market risk",
+                        "Return per unit of total risk",
+                        "Total portfolio return",
+                        "Risk-free rate of return"
+                    ],
+                    0,
+                    "The Treynor ratio measures excess return per unit of market risk (beta)."
+                ),
+                Question(
+                    "In options trading, what is a 'Delta neutral' portfolio?",
+                    [
+                        "A portfolio with no options",
+                        "A portfolio immune to price changes",
+                        "A portfolio with equal calls and puts",
+                        "A portfolio with maximum leverage"
+                    ],
+                    1,
+                    "A Delta neutral portfolio is hedged against small price changes in the underlying asset."
+                ),
+                Question(
+                    "What is the Capital Asset Pricing Model (CAPM) used for?",
+                    [
+                        "Calculating bond prices",
+                        "Determining the expected return of an asset based on its risk",
+                        "Assessing company creditworthiness",
+                        "Estimating inflation rates"
+                    ],
+                    1,
+                    "CAPM is used to determine the expected return of an asset based on its systematic risk as measured by beta."
+                )
+            ]
+        }
+
+    # ==========================================================================
+    #                       LOADING / SPLASH SCREEN
+    # ==========================================================================
+    def _setup_loading_screen(self):
+        """Create a loading screen that displays game name and a progress bar."""
+
+        self.loading_screen_frame = tk.Frame(self.root, bg='#ffffff')
+        self.loading_screen_frame.pack(expand=True, fill='both')
+
+        # Title for the loading screen
+        loading_title = tk.Label(
+            self.loading_screen_frame,
+            text="Loading MoneyMentor...",
+            font=('Helvetica', 28, 'bold'),
+            bg='#ffffff',
+            fg='#007acc'
+        )
+        loading_title.pack(pady=(100, 30))
+
+        # Create a progress bar
+        self.loading_progress_bar = ttk.Progressbar(
+            self.loading_screen_frame,
+            length=400,
+            mode='determinate'
+        )
+        self.loading_progress_bar.pack(pady=20)
+
+        # Create subtitle below the progress bar
+        loading_subtitle = tk.Label(
+            self.loading_screen_frame,
+            text="Preparing your financial adventure",
+            font=('Helvetica', 16),
+            bg='#ffffff',
+            fg='#333333'
+        )
+        loading_subtitle.pack(pady=10)
+
+        # Start simulating the loading
+        self._simulate_loading()
+
+    def _simulate_loading(self, value=0):
+        """Simulate the loading bar filling up smoothly."""
+        self.loading_progress_bar['value'] = value
+        if value < 100:
+            value += 2  # Increase progress
+            self.root.after(50, lambda: self._simulate_loading(value))
+        else:
+            # Once loading completes, remove loading screen and show start screen
+            self.loading_screen_frame.pack_forget()
+            self.loading_screen_frame.destroy()
+            self._setup_start_screen()
+
+    # ==========================================================================
+    #                    START SCREEN (AFTER LOADING)
+    # ==========================================================================
+    def _setup_start_screen(self):
+        """Create a visually pleasing start screen with 'Start Game' and 'View Rules' buttons."""
+        self.start_screen_frame = tk.Frame(self.root, bg='#f8f8f8')
+        self.start_screen_frame.pack(expand=True, fill='both')
+
+        # A decorative frame for the title
+        title_frame = tk.Frame(self.start_screen_frame, bg='#ffffff', bd=2, relief='groove')
+        title_frame.pack(pady=40, padx=40)
+
+        title_label = tk.Label(
+            title_frame,
+            text="Welcome to MoneyMentor!",
+            font=('Helvetica', 36, 'bold'),
+            bg='#ffffff',
+            fg='#007acc'
+        )
+        title_label.pack(padx=50, pady=20)
+
+        # Sub-heading
+        subtitle_label = tk.Label(
+            self.start_screen_frame,
+            text="Take charge of your finances in a fun, interactive way!",
+            font=('Helvetica', 16),
+            bg='#f8f8f8',
+            fg='black',
+            wraplength=700,
+            justify='center'
+        )
+        subtitle_label.pack(pady=10)
+
+        # Buttons frame
+        button_frame = tk.Frame(self.start_screen_frame, bg='#f8f8f8')
+        button_frame.pack(pady=40)
+
+        # Style for the start/rules buttons
+        style = ttk.Style()
+        style.configure(
+            "StartScreen.TButton",
+            font=('Helvetica', 14, 'bold'),
+            padding=10,
+            foreground='black',        # <= black text, as requested
+            background='#e0e0e0'       # a light gray background
+        )
+        style.map("StartScreen.TButton",
+                  background=[('active', '#cacaca')])  # darker on hover
+
+        start_button = ttk.Button(
+            button_frame,
+            text="Start Game",
+            style="StartScreen.TButton",
+            command=self._start_game
+        )
+        start_button.pack(side='left', padx=20)
+
+        rules_button = ttk.Button(
+            button_frame,
+            text="View Rules",
+            style="StartScreen.TButton",
+            command=self._show_rules
+        )
+        rules_button.pack(side='left', padx=20)
+
+    def _show_rules(self):
+        """Display a pop-up (Toplevel) with the rules of the game."""
+        rules_window = tk.Toplevel(self.root)
+        rules_window.title("Game Rules")
+        rules_window.geometry("600x400")
+        rules_window.configure(bg='#f8f8f8')
+
+        rules_label = tk.Label(
+            rules_window,
+            text=(
+                "MoneyMentor Game Rules:\n\n"
+                "1. Answer multiple-choice questions about personal finance and investing.\n"
+                "2. Earn points and money for correct answers.\n"
+                "3. Use your money to buy power-ups that can help you answer questions.\n"
+                "4. Each difficulty level requires a certain score to advance.\n"
+                "5. The game ends when you run out of questions at the Expert level.\n\n"
+                "Good luck and have fun learning!"
+            ),
+            font=('Helvetica', 14),
+            bg='#f8f8f8',
+            fg='black',
+            justify='left',
+            wraplength=550
+        )
+        rules_label.pack(pady=20, padx=20)
+
+        close_button = ttk.Button(
+            rules_window,
+            text="Close",
+            command=rules_window.destroy
+        )
+        close_button.pack(pady=20)
+
+    def _start_game(self):
+        """Hide the start screen and initialize the main game UI."""
+        if self.start_screen_frame:
+            self.start_screen_frame.pack_forget()
+            self.start_screen_frame.destroy()
+
+        self._setup_gui()         # Build the Notebook with Quiz/Power-Ups
+        self._load_new_question() # Load first question
+
+    # ==========================================================================
+    #                           MAIN GUI SETUP
+    # ==========================================================================
+    def _setup_gui(self):
+        # Define styles
+        self.style = ttk.Style()
+        self.style.theme_use('clam')  # Use 'clam' theme for better styling options
+
+        # Colors
+        self.primary_color = '#007acc'  # Blue
+        self.secondary_color = '#00b3e6'  # Light Blue
+        self.accent_color = '#ff9800'   # Orange
+        self.bg_color = '#f0f2f5'
+        self.header_bg = '#ffffff'
+        self.frame_bg = '#ffffff'
+        self.feedback_correct_color = '#4CAF50'    # Green
+        self.feedback_incorrect_color = '#F44336'  # Red
+        self.feedback_hint_color = '#2196F3'       # Blue
+        self.feedback_skip_color = '#FFC107'       # Amber
+
+        # Configure style for progress bar
+        self.style.configure(
+            "green.Horizontal.TProgressbar",
+            thickness=20,
+            troughcolor=self.bg_color,
+            background=self.primary_color,
+            bordercolor=self.primary_color,
+            lightcolor=self.primary_color,
+            darkcolor=self.primary_color
+        )
+
+        # Configure style for disabled buttons (used in hints)
+        self.style.configure(
+            "Disabled.TButton",
+            foreground="#a0a0a0",
+            background="#e0e0e0",
+            relief='flat'
+        )
+
+        # Notebook (Tabs) setup
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(expand=True, fill='both', padx=10, pady=10)
+
+        # Quiz Tab
+        self.quiz_tab = tk.Frame(self.notebook, bg=self.bg_color)
+        self.notebook.add(self.quiz_tab, text='Quiz')
+
+        # Power-Ups Tab
+        self.powerups_tab = tk.Frame(self.notebook, bg=self.bg_color)
+        self.notebook.add(self.powerups_tab, text='Power-Ups')
+
+        # Setup Quiz and Power-Ups
+        self._setup_quiz_tab()
+        self._setup_powerups_tab()
+
+    def _setup_quiz_tab(self):
+        # Header frame
+        header_frame = tk.Frame(self.quiz_tab, bg=self.header_bg, padx=20, pady=10)
+        header_frame.pack(fill='x', padx=10, pady=5)
+
+        title = tk.Label(
+            header_frame,
+            text="MoneyMentor",
+            font=('Helvetica', 28, 'bold'),
+            bg=self.header_bg,
+            fg=self.primary_color
+        )
+        title.pack()
+
+        # Stats frame
+        stats_frame = tk.Frame(self.quiz_tab, bg=self.frame_bg, padx=20, pady=10)
+        stats_frame.pack(fill='x', padx=10, pady=5)
+
+        self.level_label = tk.Label(
+            stats_frame,
+            text=f"🏆 Level: {self.level}",
+            font=('Helvetica', 14, 'bold'),
+            bg=self.frame_bg,
+            fg=self.primary_color
+        )
+        self.level_label.pack(side='left', padx=20)
+
+        self.score_label = tk.Label(
+            stats_frame,
+            text=f"📊 Score: {self.score}",
+            font=('Helvetica', 14, 'bold'),
+            bg=self.frame_bg,
+            fg=self.primary_color
+        )
+        self.score_label.pack(side='left', padx=20)
+
+        self.wallet_label = tk.Label(
+            stats_frame,
+            text=f"💵 Wallet: ${self.wallet:,}",
+            font=('Helvetica', 14, 'bold'),
+            bg=self.frame_bg,
+            fg=self.primary_color
+        )
+        self.wallet_label.pack(side='left', padx=20)
+
+        self.difficulty_label = tk.Label(
+            stats_frame,
+            text=f"📚 Difficulty: {self.current_difficulty.capitalize()}",
+            font=('Helvetica', 14, 'bold'),
+            bg=self.frame_bg,
+            fg=self.primary_color
+        )
+        self.difficulty_label.pack(side='left', padx=20)
+
+        # Progress frame
+        progress_frame = tk.Frame(self.quiz_tab, bg=self.frame_bg, padx=20, pady=10)
+        progress_frame.pack(fill='x', padx=10, pady=5)
+
+        self.progress_label = tk.Label(
+            progress_frame,
+            text="Progress to next level:",
+            font=('Helvetica', 12, 'bold'),
+            bg=self.frame_bg,
+            fg=self.primary_color
+        )
+        self.progress_label.pack(anchor='w')
+
+        self.progress_bar = ttk.Progressbar(
+            progress_frame,
+            length=900,
+            mode='determinate',
+            style="green.Horizontal.TProgressbar"
+        )
+        self.progress_bar.pack(pady=5)
+        self.progress_bar['value'] = 0  # Initialize progress
+
+        # Question frame
+        self.question_frame = tk.Frame(self.quiz_tab, bg=self.frame_bg, padx=20, pady=20)
+        self.question_frame.pack(fill='both', expand=True, padx=10, pady=5)
+
+        self.question_label = tk.Label(
+            self.question_frame,
+            text="",
+            font=('Helvetica', 20, 'bold'),
+            wraplength=900,
+            justify='left',
+            bg=self.frame_bg,
+            fg='#333333'
+        )
+        self.question_label.pack(pady=20)
+
+        # Options frame
+        self.options_frame = tk.Frame(self.question_frame, bg=self.frame_bg)
+        self.options_frame.pack(fill='both', expand=True)
+
+        # Feedback frame
+        self.feedback_frame = tk.Frame(self.quiz_tab, bg=self.frame_bg, padx=20, pady=10)
+        self.feedback_frame.pack(fill='x', padx=10, pady=5)
+
+        self.feedback_label = tk.Label(
+            self.feedback_frame,
+            text="",
+            font=('Helvetica', 14, 'bold'),
+            wraplength=900,
+            bg=self.frame_bg
+        )
+        self.feedback_label.pack()
+
+        # Next Question Button (initially hidden)
+        self.next_button = ttk.Button(
+            self.feedback_frame,
+            text="Next Question",
+            command=self._load_new_question
+        )
+        self.next_button.pack(pady=10)
+        self.next_button.pack_forget()  # Hide initially
+
+    def _setup_powerups_tab(self):
+        # Header for Power-Ups
+        powerups_header = tk.Frame(self.powerups_tab, bg=self.header_bg, padx=20, pady=10)
+        powerups_header.pack(fill='x', padx=10, pady=5)
+
+        title = tk.Label(
+            powerups_header,
+            text="Power-Ups Store",
+            font=('Helvetica', 28, 'bold'),
+            bg=self.header_bg,
+            fg=self.primary_color
+        )
+        title.pack()
+
+        # Instructions
+        instructions = tk.Label(
+            self.powerups_tab,
+            text="Purchase power-ups to enhance your quiz experience!",
+            font=('Helvetica', 14),
+            bg=self.bg_color,
+            fg='#333333'
+        )
+        instructions.pack(pady=10)
+
+        # Power-Ups List
+        self.powerups_frame = tk.Frame(self.powerups_tab, bg=self.bg_color, padx=20, pady=10)
+        self.powerups_frame.pack(fill='both', expand=True)
+
+        self._populate_powerups_tab()
+
+    def _populate_powerups_tab(self):
+        for powerup, details in self.powerups.items():
+            frame = tk.Frame(self.powerups_frame, bg=self.frame_bg, bd=2, relief='groove', padx=10, pady=10)
+            frame.pack(fill='x', padx=20, pady=10)
+
+            name = tk.Label(
+                frame,
+                text=powerup.replace('_', ' ').title(),
+                font=('Helvetica', 16, 'bold'),
+                bg=self.frame_bg,
+                fg=self.primary_color
+            )
+            name.pack(anchor='w')
+
+            description = self._get_powerup_description(powerup)
+            desc_label = tk.Label(
+                frame,
+                text=description,
+                font=('Helvetica', 12),
+                bg=self.frame_bg,
+                fg='#555555',
+                wraplength=900,
+                justify='left'
+            )
+            desc_label.pack(anchor='w', pady=5)
+
+            cost = details['cost']
+            cost_label = tk.Label(
+                frame,
+                text=f"Cost: ${cost:,}",
+                font=('Helvetica', 12, 'bold'),
+                bg=self.frame_bg,
+                fg=self.primary_color
+            )
+            cost_label.pack(anchor='w')
+
+            buy_button = ttk.Button(
+                frame,
+                text="Buy",
+                command=lambda p=powerup: self._buy_powerup(p)
+            )
+            buy_button.pack(anchor='e', pady=5)
+
+            # Disable button if not enough funds or already purchased
+            if self.wallet < cost or not details['available']:
+                buy_button.state(['disabled'])
+                buy_button.config(text='Unavailable')
+            else:
+                # Add hover effect
+                buy_button.bind("<Enter>", lambda e, b=buy_button: b.config(style='Accent.TButton'))
+                buy_button.bind("<Leave>", lambda e, b=buy_button: b.config(style='TButton'))
+
+        # Configure Accent button style
+        self.style.configure(
+            "Accent.TButton",
+            foreground='black',         # black text for the buy button
+            background=self.accent_color
+        )
+        self.style.map(
+            "Accent.TButton",
+            background=[('active', self.secondary_color)]
+        )
+
+    def _get_powerup_description(self, powerup: str) -> str:
+        descriptions = {
+            'hint': "Use this to eliminate two incorrect answers for the current question.",
+            'double_points': "Double the points earned for your next correct answer.",
+            'skip_question': "Skip the current question without any penalty."
+        }
+        return descriptions.get(powerup, "No description available.")
+
+    def _buy_powerup(self, powerup: str):
+        cost = self.powerups[powerup]['cost']
+        if self.wallet >= cost and self.powerups[powerup]['available']:
+            self.wallet -= cost
+            self._update_stats()
+            self.powerups[powerup]['available'] = False
+            self._update_powerups_tab()
+            self._activate_powerup(powerup)
+            messagebox.showinfo("Power-Up Purchased",
+                                f"You have purchased '{powerup.replace('_', ' ').title()}'.")
+        else:
+            messagebox.showwarning("Insufficient Funds", "You do not have enough money to purchase this power-up.")
+
+    def _activate_powerup(self, powerup: str):
+        if powerup == 'hint':
+            self._use_hint()
+        elif powerup == 'double_points':
+            self.active_powerups['double_points'] = True
+            messagebox.showinfo("Power-Up Activated",
+                                "Double Points is now active for your next correct answer!")
+        elif powerup == 'skip_question':
+            self._skip_question()
+
+    def _use_hint(self):
+        if self.current_question:
+            incorrect_indices = [i for i in range(len(self.current_question.options))
+                                 if i != self.current_question.correct]
+            if len(incorrect_indices) < 2:
+                return  # Not enough options to eliminate
+            eliminated = random.sample(incorrect_indices, 2)
+            for idx in eliminated:
+                btn = self.answer_buttons[idx]
+                btn.config(state='disabled')
+                btn.config(style='Disabled.TButton')
+
+            hint_message = "🔍 Hint used: Two incorrect answers have been eliminated."
+            self.feedback_label.config(text=hint_message, fg=self.feedback_hint_color)
+            self.next_button.pack(pady=10)
+
+    def _skip_question(self):
+        self.feedback_label.config(text="⏭️ Question skipped!", fg=self.feedback_skip_color)
+        self.next_button.pack(pady=10)
+        self.root.after(1500, self._load_new_question)
+
+    def _update_powerups_tab(self):
+        # Refresh the Power-Ups tab to update button states
+        for widget in self.powerups_frame.winfo_children():
+            widget.destroy()
+        self._populate_powerups_tab()
+
+    def _update_stats(self):
+        self.level_label.config(text=f"🏆 Level: {self.level}")
+        self.score_label.config(text=f"📊 Score: {self.score}")
+        self.wallet_label.config(text=f"💵 Wallet: ${self.wallet:,}")
+        self.difficulty_label.config(text=f"📚 Difficulty: {self.current_difficulty.capitalize()}")
+
+        progress = (self.score % (self.level * 300)) / (self.level * 300) * 100
+        self.progress_bar['value'] = progress
+
+        # After updating stats, also update the Power-Ups tab
+        self._update_powerups_tab()
+
+    def _update_difficulty(self):
+        old_difficulty = self.current_difficulty
+        if self.level <= 3:
+            self.current_difficulty = 'beginner'
+        elif self.level <= 6:
+            self.current_difficulty = 'intermediate'
+        elif self.level <= 9:
+            self.current_difficulty = 'advanced'
+        else:
+            self.current_difficulty = 'expert'
+
+        # If difficulty changed, clear used questions for the new difficulty
+        if old_difficulty != self.current_difficulty:
+            self.used_questions[self.current_difficulty] = set()
+
+    def _handle_answer(self, selected_index: int):
+        if not self.current_question:
+            return
+
+        # Disable all answer buttons to prevent multiple clicks
+        for btn in self.answer_buttons:
+            btn.config(state='disabled')
+        self.answer_buttons.clear()
+
+        is_correct = selected_index == self.current_question.correct
+        if is_correct:
+            level_multiplier = max(1, (self.level + 2) // 3)
+            if self.active_powerups['double_points']:
+                points_gained = 200 * level_multiplier
+                self.active_powerups['double_points'] = False
+                feedback_text = f"✅ Correct! You earned {points_gained} points (Double!) and ${200 * level_multiplier:,}"
+            else:
+                points_gained = 100 * level_multiplier
+                feedback_text = f"✅ Correct! You earned {points_gained} points and ${200 * level_multiplier:,}"
+
+            self.score += points_gained
+            self.wallet += (200 * level_multiplier)
+
+            self.feedback_label.config(text=feedback_text + f"\n💡 {self.current_question.explanation}",
+                                       fg=self.feedback_correct_color)
+
+            # Check for level-up
+            if self.score >= self.level * 300:
+                self.level += 1
+                messagebox.showinfo("Level Up!",
+                                    f"🎉 Congratulations! You've reached Level {self.level}!")
+                self._update_difficulty()
+        else:
+            feedback_text = f"❌ Incorrect. {self.current_question.explanation}"
+            self.feedback_label.config(text=feedback_text, fg=self.feedback_incorrect_color)
+
+        # Show "Next Question" button
+        self.next_button.pack(pady=10)
+        self._update_stats()
+
+    def _get_available_questions(self):
+        current_questions = self.questions[self.current_difficulty]
+        available_questions = [
+            q for q in current_questions
+            if q.question not in self.used_questions[self.current_difficulty]
+        ]
+        return available_questions
+
+    def _load_new_question(self):
+        self.next_button.pack_forget()
+        self.feedback_label.config(text="")
+
+        available_questions = self._get_available_questions()
+        if not available_questions:
+            # If no questions left at current difficulty
+            if self.current_difficulty == 'expert':
+                self._show_you_won_screen()
+                return
+            else:
+                # Move to next difficulty
+                if self.current_difficulty == 'beginner':
+                    self.current_difficulty = 'intermediate'
+                elif self.current_difficulty == 'intermediate':
+                    self.current_difficulty = 'advanced'
+                elif self.current_difficulty == 'advanced':
+                    self.current_difficulty = 'expert'
+
+                self.used_questions[self.current_difficulty] = set()
+                available_questions = self._get_available_questions()
+
+        self.current_question = random.choice(available_questions)
+        self.used_questions[self.current_difficulty].add(self.current_question.question)
+
+        self.question_label.config(text=self.current_question.question)
+
+        # Clear old options
+        for widget in self.options_frame.winfo_children():
+            widget.destroy()
+
+        # Create new option buttons
+        self.answer_buttons = []
+        for i, option in enumerate(self.current_question.options):
+            btn = ttk.Button(self.options_frame, text=option, command=lambda x=i: self._handle_answer(x))
+            btn.pack(pady=10, padx=20, fill='x')
+
+            # Style the button
+            self.style.configure(
+                "TButton",
+                font=('Helvetica', 14),
+                padding=10,
+                relief='flat',
+                foreground='black',     # black text, as requested
+                background=self.primary_color
+            )
+            self.style.map("TButton",
+                           background=[('active', self.secondary_color)])
+
+            self.answer_buttons.append(btn)
+
+    def _show_you_won_screen(self):
+        for widget in self.quiz_tab.winfo_children():
+            widget.pack_forget()
+
+        you_won_frame = tk.Frame(self.quiz_tab, bg=self.bg_color, padx=20, pady=20)
+        you_won_frame.pack(expand=True)
+
+        message = tk.Label(
+            you_won_frame,
+            text="🎉 You Won!",
+            font=('Helvetica', 36, 'bold'),
+            bg=self.bg_color,
+            fg=self.primary_color
+        )
+        message.pack(pady=30)
+
+        final_stats = (
+            f"Final Score: {self.score}\n"
+            f"Final Level: {self.level}\n"
+            f"Final Wallet: ${self.wallet:,}"
+        )
+        stats_label = tk.Label(
+            you_won_frame,
+            text=final_stats,
+            font=('Helvetica', 18),
+            bg=self.bg_color,
+            fg='#333333',
+            justify='center'
+        )
+        stats_label.pack(pady=10)
+
+        restart_button = ttk.Button(
+            you_won_frame,
+            text="Restart Game",
+            command=self._restart_game
+        )
+        restart_button.pack(pady=30)
+
+        self.style.configure(
+            "TButton",
+            font=('Helvetica', 14),
+            padding=10,
+            relief='flat',
+            foreground='black',
+            background=self.secondary_color
+        )
+        self.style.map("TButton",
+                       background=[('active', self.primary_color)])
+
+    def _restart_game(self):
+        self.score = 0
+        self.level = 1
+        self.wallet = 1000
+        self.current_difficulty = 'beginner'
+        self.used_questions = {
+            'beginner': set(),
+            'intermediate': set(),
+            'advanced': set(),
+            'expert': set()
+        }
+        self.active_powerups = {
+            'double_points': False
+        }
+        for powerup in self.powerups:
+            self.powerups[powerup]['available'] = True
+
+        for widget in self.quiz_tab.winfo_children():
+            widget.destroy()
+
+        self._setup_quiz_tab()
+        self._load_new_question()
+
+    def run(self):
+        self.root.mainloop()
+
+
+if __name__ == "__main__":
+    app = MoneyMentorGUI()
+    app.run()
